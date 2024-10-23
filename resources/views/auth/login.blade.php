@@ -72,7 +72,7 @@
             }
         });
         async function loadLabeledImages() {
-            const labels = ['henry','milton']; // Cambia estos nombres según tus necesidades
+            const labels = ['henry','pablo','jhordan','melina']; // Cambia estos nombres según tus necesidades
             return Promise.all(
                 labels.map(async (label) => {
                     const descriptions = []; // Esta lista contendrá las descripciones de las caras
@@ -116,7 +116,7 @@
                 return;
             }
 
-            const users = [ "henry","milton","alexander","melina"];
+            const users = [ "henry","pablo","alexander","melina","jhordan"];
             const regex = /(\w+)\s*\(([\d.]+)\)/;
             const match = decodeText.match(regex);
             let user = "";
