@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-
+use Illuminate\Support\Facades\File;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Providers\RouteServiceProvider;
@@ -26,16 +26,19 @@ class UsersController extends Controller
 
     public function create()
     {
-        return view('Usuarios.create');
+        $users = User::All();
+        return view('Usuarios.create')->with('users', $users) ;;
     }
 
     public function store(Request $request)
     {
-        //dd($request->all());
+        // Validación de los campos del formulario
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'photos' => ['required', 'array', 'min:1'], // Asegúrate de que se reciban fotos
+            'photos.*' => ['string'], // Validación para cada foto como cadena Base64
         ]);
 
         // Crear el nuevo usuario
@@ -45,8 +48,35 @@ class UsersController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
+        // Crear la carpeta para el usuario
+        $userDirectory = public_path('images/' . $user->name);
+        if (!file_exists($userDirectory)) {
+            if (mkdir($userDirectory, 0755, true)) {
+            } else {
+                return redirect()->route('admin.users')->withErrors(['msg' => 'No se pudo crear el directorio para las fotos.']);
+            }
+        }
+
+        // Guardar las fotos en la carpeta
+        foreach ($request->photos as $key => $photoData) {
+            if ($key >= 4) break; // Salir si ya se guardaron 4 fotos
+
+            // Convertir la cadena Base64 a un archivo
+            $photo = str_replace('data:image/png;base64,', '', $photoData);
+            $photo = str_replace(' ', '+', $photo);
+            $photoName = ($key + 1) . '.jpg'; // Nombre de la foto como 1.jpg, 2.jpg, etc.
+            $filePath = $userDirectory . '/' . $photoName;
+
+            // Decodificar el contenido y guardar el archivo
+            file_put_contents($filePath, base64_decode($photo));
+
+        }
+
         return redirect()->route('admin.users')->with('status', 'User created successfully!');
     }
+
+
+
 
     public function edit($user_id)
     {
@@ -79,11 +109,20 @@ class UsersController extends Controller
     }
 
     public function destroy($user_id)
-    {
-        $user = User::find($user_id);
-        $user->delete();
-        return Redirect::route('admin.users');
+{
+    $user = User::find($user_id);
+
+    // Eliminar la carpeta del usuario
+    $userFolder = public_path('images/' . $user->name);
+
+    if (File::exists($userFolder)) {
+        File::deleteDirectory($userFolder);
     }
+
+    $user->delete();
+
+    return Redirect::route('admin.users');
+}
     public function auth(Request $request)
     {
         $username = $request->user;

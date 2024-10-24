@@ -1,11 +1,21 @@
 <x-guest-layout>
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
+
+    <!-- Contenedor para la carga -->
+    <div id="loading" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; align-items: center; justify-content: center;">
+        <div class="spinner"></div> <!-- Puedes añadir un spinner aquí -->
+        <p>Cargando...</p>
+    </div>
+
     <!-- Contenedor para la cámara y el canvas -->
-    <!-- Contenedor para la cámara y el canvas -->
-    <div id="container" style="position: relative; display: none;"> <!-- Inicialmente oculto -->
+    <div id="container" style="position: relative; display: none;">
         <video id="video" width="640" height="480" autoplay muted></video>
         <canvas id="canvas" style="display: none;"></canvas>
+    </div>
+    <!-- Div oculto que contiene todos los usuarios -->
+    <div id="hidden-users" style="display: none;">
+        @json($users)
     </div>
     <form method="POST" action="{{ route('login') }}" id="login-form">
         @csrf
@@ -51,41 +61,49 @@
         </div>
     </form>
 
-
-
     <script>
+         const allusers = JSON.parse(document.getElementById('hidden-users').innerHTML); // Cargar usuarios desde el div oculto
+       // console.log(users); // Para verificar que los usuarios se están cargando correctamente
+        const users = allusers.map(user => user.name);
+        const labels = users;
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d'); // Mueve esto fuera para poder usarlo más tarde
-        let labeledFaceDescriptors = []; // Almacenará las descripciones de las caras
+        const ctx = canvas.getContext('2d');
+        let labeledFaceDescriptors = [];
 
         document.getElementById('camera-switch').addEventListener('change', async (event) => {
             const container = document.getElementById('container');
             if (event.target.checked) {
                 await startCamera();
                 container.style.display = 'block';
-                canvas.style.display = 'block'; // Hacemos visible el canvas
+                canvas.style.display = 'block';
             } else {
-                stopCamera(); // Detiene la cámara si no se muestra
+                stopCamera();
                 container.style.display = 'none';
-                canvas.style.display = 'none'; // Ocultar el canvas
+                canvas.style.display = 'none';
             }
         });
+
         async function loadLabeledImages() {
-            const labels = ['henry','pablo','jhordan','melina']; // Cambia estos nombres según tus necesidades
-            return Promise.all(
+            document.getElementById('loading').style.display = 'flex';
+
+            const labels = users;
+            const labeledFaceDescriptors = await Promise.all(
                 labels.map(async (label) => {
-                    const descriptions = []; // Esta lista contendrá las descripciones de las caras
-                    for (let i = 1; i <= 4; i++) { // Supongamos que tienes 2 imágenes por persona
+                    const descriptions = [];
+                    for (let i = 1; i <= 4; i++) {
                         const img = await faceapi.fetchImage(`images/${label}/${i}.jpg`);
                         const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
                         if (detections) {
-                            descriptions.push(detections.descriptor); // Almacena el descriptor solo si se detecta una cara
+                            descriptions.push(detections.descriptor);
                         }
                     }
-                    return new faceapi.LabeledFaceDescriptors(label, descriptions); // Crea un nuevo LabeledFaceDescriptors
+                    return new faceapi.LabeledFaceDescriptors(label, descriptions);
                 })
             );
+
+            document.getElementById('loading').style.display = 'none';
+            return labeledFaceDescriptors;
         }
 
         async function startCamera() {
@@ -104,7 +122,7 @@
             if (stream) {
                 const tracks = stream.getTracks();
                 tracks.forEach(track => track.stop());
-                video.srcObject = null; // Libera el video
+                video.srcObject = null;
             }
         }
 
@@ -116,7 +134,7 @@
                 return;
             }
 
-            const users = [ "henry","pablo","alexander","melina","jhordan"];
+
             const regex = /(\w+)\s*\(([\d.]+)\)/;
             const match = decodeText.match(regex);
             let user = "";
@@ -128,7 +146,6 @@
             } else {
                 console.log("No se encontró un patrón coincidente.");
             }
-
 
             if (users.includes(user.trim()) && confianza > 0.55) {
                 console.log('user:', user.trim());
@@ -163,10 +180,8 @@
             }
         }
 
-
-
-
         async function loadModels() {
+            document.getElementById('loading').style.display = 'flex';
             await Promise.all([
                 faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
                 faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
@@ -174,30 +189,32 @@
                 faceapi.nets.faceExpressionNet.loadFromUri('/models'),
                 faceapi.nets.ssdMobilenetv1.loadFromUri('/models')
             ]);
+            document.getElementById('loading').style.display = 'none';
         }
 
         (async () => {
-            await loadModels(); // Espera a que se carguen todos los modelos
-            labeledFaceDescriptors = await loadLabeledImages(); // Carga las imágenes etiquetadas
+            await loadModels();
+            labeledFaceDescriptors = await loadLabeledImages();
             const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
-            //await startCamera(); // Asegúrate de que la cámara se inicie después de cargar los modelos
+
 
             video.addEventListener('play', async () => {
-                // Establece el tamaño del canvas igual al del video
+
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                canvas.style.display = 'block'; // Hacemos visible el canvas
+                canvas.style.display = 'block';
                 const displaySize = {
                     width: (video.videoWidth / 2) + 75,
                     height: (video.videoHeight / 2) + 60
                 };
                 faceapi.matchDimensions(canvas, displaySize);
+                console.log('video is playing');
 
-                setInterval(async () => {
+                const detectFace = async () => {
                     const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
                         .withFaceLandmarks()
                         .withFaceDescriptors()
-                        .withFaceExpressions(); // Asegúrate de incluir las expresiones
+                        .withFaceExpressions();
 
                     const resizedDetections = faceapi.resizeResults(detections, displaySize);
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -211,27 +228,46 @@
                         ctx.lineWidth = 2;
                         ctx.strokeRect(box.x, box.y, box.width, box.height);
                         ctx.fillStyle = 'white';
-                        ctx.fillText(label, box.x, box.y > 10 ? box.y - 5 : 10); // Dibuja el nombre encima del cuadro
+                        ctx.fillText(label, box.x, box.y > 10 ? box.y - 5 : 10);
 
                         enviarDatos(label);
                     });
+                };
 
-                    // Dibuja los landmarks y expresiones
-                    faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
-                    faceapi.draw.drawFaceExpressions(canvas, resizedDetections); // Esto ahora debería funcionar sin errores
-                }, 100);
+                setInterval(detectFace, 100);
             });
-
-        })().catch(err => console.error('Error al cargar los modelos o las imágenes:', err));
+        })().catch(err => {
+            console.error('Error al cargar los modelos o las imágenes:', err);
+            document.getElementById('loading').style.display = 'none';
+        });
     </script>
 
+    <style>
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
     <style>
         canvas {
             position: absolute;
             top: 0;
             left: 0;
             z-index: 2;
-            /* Para que el canvas esté sobre el video */
         }
     </style>
 </x-guest-layout>
