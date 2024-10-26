@@ -1,25 +1,32 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 use App\Models\Device;
+use App\Models\Registro;
 
 class ApiDeviceController extends Controller
 {
     public function update($uuid)
     {
-        // Buscar el dispositivo por UUID
         $device = Device::where('uuid', $uuid)->first();
-
         if ($device) {
-            // Cambiar el estado: si es true (activado), lo cambia a false, y viceversa
             $device->status = !$device->status;
-
-            // Guardar los cambios en la base de datos
             $device->save();
+            $response = Http::post('http://45.79.209.76:3000/api/change-status', [
+                'numberRoom' =>  $device->habitacion->numero_habitacion,
+            ])->throw();
 
-            // Devolver una respuesta con el nuevo estado del dispositivo
+
+            $responseData = $response->json();
+
+            if (isset($responseData['trxhash'])) {
+                $requestData['trxhash'] = $responseData['trxhash'];
+                $registro = Registro::create($requestData);
+            } else {
+                return response()->json(['error' => 'Transaction hash not found.'], 400);
+            }
             return response()->json([
                 'success' => true,
                 'message' => 'Status cambiado correctamente',
@@ -27,7 +34,6 @@ class ApiDeviceController extends Controller
                 'Device' => $device
             ], 200);
         } else {
-            // Dispositivo no encontrado
             return response()->json([
                 'success' => false,
                 'message' => 'Dispositivo no encontrado'

@@ -4,7 +4,7 @@ async function initializeFaceRecognition(startCamera, video) {
     let labeledFaceDescriptors = [];
 
     async function loadLabeledImages() {
-        const labels = ['milton']; // Cambia estos nombres según tus necesidades
+        const labels = ['henry']; // Cambia estos nombres según tus necesidades
         return Promise.all(
             labels.map(async (label) => {
                 const descriptions = [];

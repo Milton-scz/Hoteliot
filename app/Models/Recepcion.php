@@ -18,6 +18,7 @@ class Recepcion extends Model
         'descuento',
         'total_a_pagar',
         'observaciones',
+        'trxhash'
     ];
 
     public function cliente() {

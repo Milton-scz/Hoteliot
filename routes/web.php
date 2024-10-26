@@ -8,7 +8,7 @@ use App\Http\Controllers\HabitacionController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\ApiDeviceController;
 use App\Http\Controllers\RecepcionController;
-use App\Http\Controllers\SmartContractController;
+use App\Http\Controllers\RegistroController;
 
 
 Route::get('/api/device/update/{uuid}', [ApiDeviceController::class, 'update']);
@@ -78,6 +78,11 @@ Route::middleware('auth')->group(function () {
         Route::patch('/admin-recepciones/edit', [RecepcionController::class, 'update'])->name('recepciones.update');
         Route::delete('admin-recepciones/destroy/{recepcion_id}', [RecepcionController::class, 'destroy'])->name('recepciones.destroy');
 
+        Route::get('/admin-recepciones/details', [RecepcionController::class, 'details'])->name('recepciones.details');
+
+
+        // GESTIONAR REGISTROS
+        Route::get('/admin-registros', [RegistroController::class, 'index'])->name('registros');
 });
 
 require __DIR__.'/auth.php';

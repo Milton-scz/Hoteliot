@@ -70,7 +70,12 @@
                         <x-nav-link :href="route('recepciones')" :active="request()->routeIs('recepciones')">
                             {{ __('Recepcion') }}
                         </x-nav-link>
-
+                        <x-nav-link :href="route('recepciones.details')" :active="request()->routeIs('recepciones.details')">
+                            {{ __('Detalles') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('registros')" :active="request()->routeIs('registros')">
+                            {{ __('Registros') }}
+                        </x-nav-link>
                     </x-slot>
 
                 </x-dropdown>

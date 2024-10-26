@@ -22,6 +22,7 @@ return new class extends Migration
             $table->decimal('descuento', 8, 2)->nullable();  // Descuento aplicado
             $table->decimal('total_a_pagar', 8, 2);  // Total calculado a pagar
             $table->text('observaciones')->nullable();  // Observaciones opcionales
+            $table->text('trxhash')->nullable();  // Observaciones opcionales
             $table->timestamps();
         });
     }

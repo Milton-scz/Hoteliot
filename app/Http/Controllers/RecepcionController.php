@@ -6,6 +6,9 @@ use App\Models\Recepcion;
 use Illuminate\Http\Request;
 use App\Models\Habitacion;
 use App\Models\Cliente;
+use App\Models\Registro;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log as FacadesLog;
 class RecepcionController extends Controller
 {
     /**
@@ -15,6 +18,15 @@ class RecepcionController extends Controller
     {
         $habitaciones = Habitacion::all();
         return view('Reservas.Recepcion.index', compact('habitaciones'));
+    }
+
+
+    public function details()
+    {
+        // Cargar las recepciones con sus clientes y habitaciones
+        $recepciones = Recepcion::with(['cliente', 'habitacion'])->paginate(10);
+
+        return view('Reservas.Recepcion.details', compact('recepciones'));
     }
 
     /**
@@ -32,8 +44,6 @@ class RecepcionController extends Controller
      */
     public function store(Request $request)
     {
-
-
         $request->validate([
             'habitacion_id' => 'required|exists:habitacions,id',
             'cliente_id' => 'required|exists:clientes,id',
@@ -46,14 +56,32 @@ class RecepcionController extends Controller
             'observaciones' => 'nullable|string',
         ]);
 
+ // Realiza la interacción con tu contrato inteligente para registrar la renta
+ $response = Http::post('http://45.79.209.76:3000/api/rent-room', [
+    'cedulaCliente' => $request->cliente_id,
+    'numberRoom' =>  $request->habitacion_id,
+])->throw();
 
-        $recepcion = Recepcion::create($request->all());
+$responseData = $response->json();
+
+if (isset($responseData['trxhash'])) {
+    $requestData = $request->all();
+    $requestData['trxhash'] = $responseData['trxhash'];
+    $recepcion = Recepcion::create($requestData);
+    $registroData = [
+        'trxhash' => $responseData['trxhash'],
+    ];
+    $registro = Registro::create($registroData);
+} else {
+    // Manejo de error si trxhash no está presente
+    return response()->json(['error' => 'Transaction hash not found.'], 400);
+}
+
         $habitacion = Habitacion::findOrFail($request->habitacion_id);
         if ($request->tipo_registro === "reservar") {
             $habitacion->estado = 'reservado';
         } else {
             $habitacion->estado = 'ocupado';
-
         }
         $habitacion->save();
 
@@ -124,6 +152,19 @@ class RecepcionController extends Controller
             $habitacion->save();
         }
 
+        $response = Http::post('http://45.79.209.76:3000/api/change-status', [
+            'numberRoom' =>  $recepcion->habitacion->numero_habitacion,
+        ])->throw();
+
+
+        $responseData = $response->json();
+
+        if (isset($responseData['trxhash'])) {
+            $requestData['trxhash'] = $responseData['trxhash'];
+            $registro = Registro::create($requestData);
+        } else {
+            return response()->json(['error' => 'Transaction hash not found.'], 400);
+        }
         return redirect()->route('recepciones')->with('success', 'Recepción actualizada y habitación marcada como disponible.');
     }
 
